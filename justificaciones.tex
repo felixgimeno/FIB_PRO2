@@ -1,0 +1,200 @@
+\title{Justificaciones Pr\'actica PRO2}
+\author{F\'elix Axel Gimeno Gil}
+\date{\today}
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc} %para los acentos
+\usepackage[spanish]{babel}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{listings,color}
+\usepackage[usenames,dvipsnames]{xcolor}
+\definecolor{listinggray}{gray}{0.9}
+\definecolor{lbcolor}{rgb}{0.9,0.9,0.9}
+\lstset{
+backgroundcolor=\color{lbcolor}, tabsize=4, language=[GNU]C++, basicstyle=\scriptsize,
+	aboveskip={1.5\baselineskip},
+        columns=fixed, showstringspaces=false,
+        extendedchars=false, breaklines=true,
+        prebreak = \raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+        frame=single,  numbers=left,
+        showtabs=false,
+        showspaces=false, showstringspaces=false,
+        identifierstyle=\ttfamily, keywordstyle=\color[rgb]{0,0,1},
+        commentstyle=\color[rgb]{0.026,0.112,0.095}, stringstyle=\color[rgb]{0.627,0.126,0.941},
+        numberstyle=\color[rgb]{0.205, 0.142, 0.73}, 
+}
+\lstset{
+    backgroundcolor=\color{lbcolor},
+    tabsize=4,
+  language=C++,
+  captionpos=b,
+  tabsize=3,
+  frame=lines,
+  numbers=left,
+  numberstyle=\tiny,
+  numbersep=5pt,
+  breaklines=true,
+  showstringspaces=false,
+  basicstyle=\footnotesize,
+%  identifierstyle=\color{magenta},
+  keywordstyle=\color[rgb]{0,0,1},
+  commentstyle=\color{ForestGreen},
+  stringstyle=\color{red}
+  }
+%\section{}
+%\subsection{}
+%\subsubsection{Article Information}
+%\begin{lstlisting} \end{lstlisting}
+%\subsubsection{Implementación}
+%\subsubsection{Justificación}
+\begin{document}
+\maketitle
+\section{La clase mini\_red}
+\subsection{La operación ii\_rp}
+Esta operación recursiva realiza un pedido de energia respecto a un arbol dado.
+\subsubsection{Implementación}
+\begin{lstlisting}
+// Pre: ed >= 0 , ec = 0, paises contiene N > 1 paises, arbol A contiene enteros entre 0 y N-1 (no necesario todos), ed es la ETS del nodo de A que le pasa su padre
+// Post: ecn es la energia vendida al arbol A desde el exterior segun las reglas del enunciado , ed >= ecn >= 0, paises contiene las energia actualizadas al realizar el pedido de los paises que estan en el arbol A
+void mini_red::ii_rp(ListaPaises& paises, Arbre<int>& A, const int ed, int& ecn){
+	if (A.es_buit()) ecn = 0;
+	else {
+		const int raiz = A.arrel();
+		int er = 0;
+		if (es_productor(raiz, C)) er = paises.consultar_energia(raiz);
+		int ed1, ed2, ec1, ec2;
+		ed1 = ed2 = (ed + er) / 2;
+		ec1 = ec2 = 0;
+		if (ed1 + ed2 < ed + er) ed1 += 1;
+		Arbre <int> fe, fd;
+		A.fills(fe, fd);
+		const bool solo_un_sucesor = fe.es_buit() or fd.es_buit();
+		if (solo_un_sucesor) ed2 = ed1 = ed + er;
+		ii_rp(paises, fe, ed1, ec1);
+		ii_rp(paises, fd, ed2, ec2);
+		A.plantar(raiz, fe, fd);
+		if (es_productor(raiz, C)) {
+			if (solo_un_sucesor) {
+				int s0 = min(ec1 + ec2, er);
+				paises.sumar_energia(raiz, -s0);
+				ecn = ec1 + ec2 - s0;
+			}
+			else { //si es productor y tiene dos sucesores
+				int er1 = er / 2;
+				int er2 = er / 2;
+				if (er1 + er2 < er) er1 += 1;
+				int s1 = min(ec1, er1);
+				paises.sumar_energia(raiz, -s1);
+				er -= s1;
+				ec1 -= s1;
+				int s2 = min(ec2, er2);
+				paises.sumar_energia(raiz, -s2);
+				er -= s2;
+				ec1 -= s2;
+				ecn = ec1 + ec2;
+			}
+		} 
+		else { //si es consumidor
+			int s = min(ed - ec1 - ec2, pedido[raiz]);
+			paises.sumar_energia(raiz, s);
+			ecn = s + ec1 + ec2;
+		}
+	}
+}
+
+\end{lstlisting}
+\subsubsection{Definición de variables}
+
+\begin{description}
+\item{ed1} Energia disponible para el subarbol fe
+\item{ed2} Energia disponible para el subarbol fd
+\item{ec1} Energia consumida neta en el subarbol fe (neta en el sentido consumida menos vendida)
+\item{ec2} Energia consumida neta en el subarbol fe (neta en el sentido consumida menos vendida)
+\item{er1} Maxima energia que puede vender el nodo de A al subarbol fe
+\item{er2} Maxima energia que puede vender el nodo de A al subarbol fd
+\item{s1}  Energia vendida por el nodo de A al subarbol izquierdo
+\item{s2}  Energia vendida por el nodo de A al subarbol derecho
+\end{description}
+Consideración: Este código se comporta correctamente también cuando solo hay un sucesor por la derecha, 
+es decir, si el nodo de A solo tiene un hijo, el programa considera ed1 = ed2 = ed+er y er1 = er2 = er
+\subsubsection{Justificación}
+\begin{description}
+\item{Caso directo:} \\
+Si el arbol A es vacío, no se consume energia de fuera. \\
+Por tanto, el caso directo nos lleva a la postcondición. \\
+Las llamadas a es\_buit son correctas porque es\_buit tiene cierto como precondición.
+\item{Caso recursivo:} \\
+Las llamadas a arrel(), fills() y a plantar() son correctas, puesto que podemos garantizar en la rama del else
+que nos encontramos que A es no vacío. \\
+Las llamadas a es\_productor y a paises.sumar\_energia son correctas porque N $>$ 1 y la raiz esta entre 0 y N-1. \\
+Las llamadas recursivas cumplen su precondicion porque:
+\begin{itemize}
+\item paises es el mismo y ya cumplia la precondicion
+\item un subarbol de un arbol que cumple la precondicion la sigue cumpliendo
+\item ed1 y ed2 son las ETS calculadas para los hijos izquierdo y derecho teniendo en cuenta los cuatro casos: si o no la raiz del arbol tiene dos sucesores y si o no la raiz del arbol es productora
+\item ec1,ec2 = 0
+\end{itemize}
+Ahora supondremos que las llamadas recursivas cumplen su post, entonces el programa habiendo obtenido las energias consumidas en el subarbol izquierdo y derecho actualiza la energia del nodo reduciendola por haber vendido si el nodo era productor y aumentandola si el nodo era consumidor y habia pedido energia. Después devuelve la energia consumida neta del arbol A, cumpliendo la post de la función.
+Por inducción con el caso directo y recursivo tenemos que la función siempre cumple que si la pre es cierta, la post también.
+\item{Finalización:} \\
+La función de cota obvia es la altura del arbol A (que es siempre un entero nonegativo), \\
+si la altura es cero el arbol A es vacio y termina,\\
+si la altura es disinta de cero, eso significa que es positiva, y como siempre decrece en uno por cada llamada recursiva, por inducción vemos que el programa siempre acaba.
+ 
+\end{description}
+
+\newpage
+
+\section{La clase mini\_industria}
+\subsection{La operación ii\_cdp}
+Esta operación auxiliar privada de la clase mini\_industria realiza un ciclo de produccion sobre un sector de un pais,\\
+para ello calcula las unidades maximas que podra producir con la cota energetica y las cotas de los stocks de las dependencias,\\
+habiendo calculado la cantidad de unidades que producirá, actualiza el stock de las dependencias, y guarda la energia gastada y el stock producido.
+\subsubsection{Implementación}
+\begin{lstlisting}
+// Pre: 0 <= id_pais <= N-1 0<= id_sector <= M-1, p del p.i. contiene N paises de M sectores
+// Post: El sector id_sctor del pais id_pais ha sufrido un ciclo de produccion 
+void mini_industria::ii_cdp(int id_pais, int id_sector) {
+	const sector & ds = datos[id_sector]; //ds son los datos del sector actual
+
+	int t; //prod max que podria producir
+	const int energia_total = p->consultar_energia(id_pais); //energia del pais
+	const int energia_disponible = (((ds.consultar_energia())* energia_total)/100 )/ ds.consultar_EUP();
+	t = minint(energia_disponible, ds.consultar_prod_max_ciclo()); //cota energetica a la produccion
+
+	int id_dep = 0;
+	//Invariante: A todas las dep menores que id_dep se las ha tenido en cuenta para acotar t
+	while (id_dep < ds.consultar_num_dep() and t != 0 ){
+		const int stock_dep = p->consultar_stock_sector(id_pais, ds.consultar_dep_id_sector(id_dep));
+		const int cota_prod_dep = stock_dep / ds.consultar_dep_unidades_necesarias(id_dep);
+		t = minint(t, cota_prod_dep);//cota por las dependencias a la produccion 
+		id_dep += 1;
+	}
+	
+	if (t != 0){
+		nueva_energia += -t*ds.consultar_EUP();//guardamos la energia gastada  
+		for (int id_dep = 0; id_dep < ds.consultar_num_dep(); ++id_dep){
+			const int id_dep_sector = ds.consultar_dep_id_sector(id_dep);
+			const int id_dep_stock = ds.consultar_dep_unidades_necesarias(id_dep);
+			p->sumar_stock_sector(id_pais, id_dep_sector, -id_dep_stock*t);
+		}
+	}
+	nuevo_stock.at(id_sector) = t; //guardamos el stock producido en un vector privado de la clase
+}
+\end{lstlisting}
+\subsubsection{Justificación}
+Justificación del bucle while:
+\begin{itemize}
+\item Inicializaciones: id\_dep = 0 y t que es la cota actual máxima de unidades que puede producir este sector es el minimo entre la energia que puede usar entre energia por unidad y la produccion maxima.
+\item Condición de salida: Que t sea 0, significando que no produciremos unidades, o que id\_dep sea el numero de dependencias, indicando que ya las ha recorrido todas ellas.
+\item Cuerpo del bucle: Por el invariante, al aumentar id\_dep tenemos que tener en cuenta la cota que induce id\_dep sobre t, pero lo hacemos al hacer el minimo entre t y el stock de la dependencia entre las unidades necesarias de ella.
+\item Finalización. ds.consultar\_num\_dep() - id\_dep hace de función de cota de este bucle, decrece en uno cada iteración y es numero natural.
+\end{itemize}
+Justificación del bucle for:
+\begin{itemize}
+\item Invariante: Los stocks de las dependencias menores que id\_dep se han gastado para producir t unidades de producto.
+\item Inicializaciones: id\_dep es cero, por lo que el invariante se cumple.
+\item Condición de salida: id\_dep = ds.consultar\_num\_dep() , que significa que ya hemos actualizado todos los stocks de las dependencias,
+\item Cuerpo del bucle: Aumenta t en uno y actualiza el stock de la depencia id\_dep, por lo que el invariante se cumple.
+\item Finalización. ds.consultar\_num\_dep() - id\_dep hace de función de cota de este bucle, decrece en uno cada iteración y es numero natural.
+\end{itemize}
+\end{document}
